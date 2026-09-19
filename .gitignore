@@ -14,3 +14,6 @@ desktop/www/
 *.jks
 *.keystore
 key.properties
+
+# local release staging
+dist/
