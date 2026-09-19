@@ -63,26 +63,39 @@ change to the web app ships to every platform.
 
 ## Working on it
 
-Edit `www/index.html` and open it in a browser — that's the whole loop.
-
-Cutting a release:
-
-```bash
-git tag v1.0.1 && git push --tags
-```
-
-CI builds both, signs the APK, and publishes a Release. The Windows exe is built on
-a Windows runner because it cannot be cross-built from Linux.
+Edit `www/index.html` and open it in a browser — that's the whole loop. Both wrappers
+copy `www/` in at build time, so one change ships everywhere.
 
 ### Building locally
 
 ```bash
-# Android (needs the Android SDK + JDK 17)
-cd android && gradle assembleRelease      # unsigned by CI keys -> debug-signed
+# Android APK  (needs the Android SDK and a JDK 17 — not 21+, the Android plugin rejects it)
+cd android
+JAVA_HOME=/path/to/jdk-17 /path/to/gradle assembleRelease
+# -> android/app/build/outputs/apk/release/
 
-# Electron, on Windows
-cd desktop && cp -r ../www www && npm install && npm run dist:win
+# Windows installer + portable exe, buildable from Linux
+cd desktop && cp -r ../www www && npm install && npx electron-builder --win
+# -> desktop/dist/
 ```
+
+The Windows build sets `signAndEditExecutable: false`, which skips `rcedit` — that tool
+needs wine, and skipping it is what lets the exe build on Linux at all. The cost is that
+the icon isn't stamped into the binary's resources, so the app sets its window icon at
+runtime instead and NSIS puts the right icon on the installer and shortcut.
+
+### Publishing a release
+
+```bash
+gh release create v1.0.1 --generate-notes \
+  android/app/build/outputs/apk/release/Reflex-1.0.1.apk \
+  desktop/dist/Reflex-Setup-1.0.1.exe \
+  desktop/dist/Reflex-Portable-1.0.1.exe
+```
+
+`ci/` holds workflows that would do all of this automatically on `git tag`. They are
+parked rather than active — see [ci/README.md](ci/README.md) for the one command that
+turns them on.
 
 ## Notes on accuracy
 
