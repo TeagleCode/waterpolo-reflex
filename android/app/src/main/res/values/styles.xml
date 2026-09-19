@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Platform Material theme, so the APK needs no AppCompat dependency at all. -->
+  <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
+    <item name="android:windowBackground">@color/pool_deep</item>
+    <item name="android:statusBarColor">@color/pool_deep</item>
+    <item name="android:navigationBarColor">@color/pool_deep</item>
+  </style>
+</resources>

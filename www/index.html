@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#072b4a">
+<title>Reflex</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root{
+    --pool:#0a63b0;
+    --pool-deep:#072b4a;
+    --ink:#e8f2fb;
+    --muted:#8fb0cc;
+    --panel:#0e2439;
+    --line:#1d3d5c;
+    --accent:#ffd400;
+    --series:#0ea5a0;        /* chart series - validated against --panel in dark mode */
+    --grid:rgba(255,255,255,.09);
+    --ball:#ffd400;
+    --ball-size:120px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0;overflow:hidden}
+  body{
+    background:var(--pool-deep);
+    color:var(--ink);
+    font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    user-select:none;-webkit-user-select:none;
+    touch-action:manipulation;
+  }
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column}
+  .hidden{display:none !important}
+
+  /* ---------- home ---------- */
+  #home{
+    align-items:center;justify-content:center;gap:28px;padding:24px;
+    background:radial-gradient(120% 90% at 50% 0%,#0d3f6b 0%,var(--pool-deep) 60%);
+  }
+  .brand{text-align:center}
+  .brand h1{margin:0;font-size:clamp(34px,9vw,54px);font-weight:800;letter-spacing:-.02em}
+  .brand p{margin:6px 0 0;color:var(--muted);font-size:14px;letter-spacing:.14em;text-transform:uppercase}
+  .stack{display:flex;flex-direction:column;gap:12px;width:min(340px,100%)}
+  button{
+    font:inherit;color:inherit;border:0;border-radius:14px;padding:16px 20px;
+    background:var(--panel);cursor:pointer;transition:transform .08s,filter .15s;
+  }
+  button:active{transform:scale(.985)}
+  button:hover{filter:brightness(1.12)}
+  .primary{
+    background:var(--accent);color:#1a1400;font-weight:800;font-size:20px;padding:20px;
+    box-shadow:0 10px 30px -12px rgba(255,212,0,.6);
+  }
+  .ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .lastrun{color:var(--muted);font-size:13px;text-align:center;min-height:19px}
+  .lastrun b{color:var(--ink);font-weight:600}
+
+  /* ---------- panels (settings + history) ---------- */
+  .bar{
+    display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line);
+    padding-top:calc(16px + env(safe-area-inset-top));
+  }
+  .bar h2{margin:0;font-size:18px;flex:1}
+  .bar button{padding:10px 14px;border-radius:10px;font-size:14px}
+  .scroll{flex:1;overflow-y:auto;padding:18px;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+  .group{margin:0 0 26px}
+  .group>h3{
+    margin:0 0 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;
+  }
+  .row{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:12px 0;border-bottom:1px solid rgba(29,61,92,.5);
+  }
+  .row:last-child{border-bottom:0}
+  .row label{flex:1;font-size:15px;min-width:110px}
+  .row .hint{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+  input[type=number]{
+    width:104px;font:inherit;text-align:right;color:var(--ink);background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  }
+  input[type=number]:focus{outline:2px solid var(--accent);outline-offset:-1px}
+  input[type=number]{appearance:textfield;-moz-appearance:textfield}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .unit{width:14px;color:var(--muted);font-size:14px}
+  input[type=range]{flex:1;accent-color:var(--accent);min-width:120px}
+  .val{width:62px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-size:14px}
+  .seg{
+    display:flex;margin-left:auto;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;overflow:hidden;
+  }
+  .seg button{background:transparent;border-radius:0;padding:9px 13px;font-size:13px;color:var(--muted)}
+  .seg button[aria-pressed=true]{background:var(--accent);color:#1a1400;font-weight:700}
+  .swatches{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-left:auto}
+  .sw{width:38px;height:38px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+  .sw[aria-pressed=true]{border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.18)}
+  input[type=color]{
+    width:38px;height:38px;padding:0;border:1px solid var(--line);border-radius:50%;
+    background:none;cursor:pointer;overflow:hidden;margin-left:auto;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+  input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+  .preview{
+    height:170px;border-radius:14px;background:var(--pool);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:4px;
+  }
+
+  /* ---------- field ---------- */
+  #field{background:var(--pool);cursor:crosshair}
+  #ball{
+    position:fixed;width:var(--ball-size);height:var(--ball-size);
+    pointer-events:none;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));
+    visibility:hidden;
+  }
+  #hud{
+    position:fixed;top:0;left:0;right:0;display:flex;align-items:center;gap:18px;
+    padding:12px 16px;padding-top:calc(12px + env(safe-area-inset-top));
+    font-size:13px;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums;
+    background:linear-gradient(rgba(0,0,0,.22),transparent);
+  }
+  #hud .sp{flex:1}
+  #hud b{color:#fff;font-weight:600}
+  #stop{background:rgba(0,0,0,.28);padding:8px 14px;border-radius:999px;font-size:13px;color:#fff}
+  #countdown{
+    position:fixed;inset:0;pointer-events:none;
+    display:flex;align-items:center;justify-content:center;
+    font-size:clamp(70px,22vw,150px);font-weight:800;color:rgba(255,255,255,.92);
+  }
+  #zones{position:fixed;inset:0;pointer-events:none;opacity:.14}
+  #zones div{position:absolute;border:1px solid #fff}
+
+  /* ---------- summary ---------- */
+  #summary{
+    position:fixed;inset:0;background:rgba(7,43,74,.95);overflow-y:auto;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:24px;
+  }
+  #summary h2{margin:0;font-size:26px}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;width:min(360px,100%)}
+  .stat{background:var(--panel);border-radius:14px;padding:13px 15px}
+  .stat span{display:block;color:var(--muted);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+  .stat b{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .stat i{font-style:normal;font-size:12px;color:var(--muted);margin-left:5px}
+  .note{color:var(--muted);font-size:13px;text-align:center;max-width:340px}
+
+  /* ---------- history ---------- */
+  .figure{background:var(--panel);border-radius:14px;padding:16px 14px 12px;margin-bottom:22px}
+  .figure h4{margin:0 0 2px;font-size:15px;font-weight:600}
+  .figure p{margin:0 0 10px;color:var(--muted);font-size:12px}
+  #chartBox{position:relative}
+  #chart{display:block;width:100%;touch-action:none}
+  #tip{
+    position:absolute;pointer-events:none;background:#06182a;border:1px solid var(--line);
+    border-radius:8px;padding:7px 9px;font-size:12px;line-height:1.35;white-space:nowrap;
+    transform:translate(-50%,-115%);opacity:0;transition:opacity .1s;
+  }
+  #tip b{font-variant-numeric:tabular-nums}
+  .tipdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--series);margin-right:5px}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th,td{text-align:right;padding:9px 6px;border-bottom:1px solid rgba(29,61,92,.6)}
+  th{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  th:first-child,td:first-child{text-align:left}
+  .empty{color:var(--muted);font-size:14px;padding:26px 4px;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- ============ HOME ============ -->
+<section id="home" class="screen">
+  <div class="brand">
+    <h1>Reflex</h1>
+    <p>Water polo goalie trainer</p>
+  </div>
+  <div class="stack">
+    <button class="primary" id="btnStart">START</button>
+    <button class="ghost" id="btnSettings">Settings</button>
+    <button class="ghost" id="btnHistory">History</button>
+    <button class="ghost" id="btnFull">Fullscreen</button>
+  </div>
+  <div class="lastrun" id="lastRun"></div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section id="settings" class="screen hidden">
+  <div class="bar">
+    <h2>Settings</h2>
+    <button class="ghost" id="btnReset">Reset</button>
+    <button class="primary" id="btnDone" style="padding:10px 18px;font-size:15px">Done</button>
+  </div>
+  <div class="scroll">
+
+    <div class="group">
+      <h3>Timing</h3>
+      <div class="row">
+        <label>Min interval<span class="hint">Shortest wait between balls</span></label>
+        <input type="number" id="sIntMin" step="0.001" min="0.05" max="60" inputmode="decimal"><span class="unit">s</span>
+      </div>
+      <div class="row">
+        <label>Max interval<span class="hint">Set equal to min for a fixed rhythm</span></label>
+        <input type="number" id="sIntMax" step="0.001" min="0.05" max="60" inputmode="decimal"><span class="unit">s</span>
+      </div>
+      <div class="row">
+        <label>Ball stays for<span class="hint">Your window to react before it counts as a miss</span></label>
+        <input type="number" id="sShow" step="0.001" min="0.05" max="10" inputmode="decimal"><span class="unit">s</span>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Drill</h3>
+      <div class="row">
+        <label>Spawn area<span class="hint">Zones = the 6 shooting spots, in a 3&times;2 grid</span></label>
+        <div class="seg" id="segArea">
+          <button data-v="anywhere">Anywhere</button><button data-v="zones">Zones</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Cue<span class="hint">Sound only hides the ball &mdash; react to the beep, tap anywhere</span></label>
+        <div class="seg" id="segCue">
+          <button data-v="visual">Ball</button><button data-v="both">Ball + beep</button><button data-v="sound">Beep only</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Session ends<span class="hint">Open runs until you stop it</span></label>
+        <div class="seg" id="segLimit">
+          <button data-v="open">Open</button><button data-v="reps">Reps</button><button data-v="time">Time</button>
+        </div>
+      </div>
+      <div class="row hidden" id="rowReps">
+        <label>Stop after</label>
+        <input type="number" id="sReps" step="1" min="1" max="999" inputmode="numeric"><span class="unit">&times;</span>
+      </div>
+      <div class="row hidden" id="rowMins">
+        <label>Stop after</label>
+        <input type="number" id="sMins" step="0.5" min="0.5" max="60" inputmode="decimal"><span class="unit">m</span>
+      </div>
+    </div>
+
+    <div class="group">
+      <h3>Ball</h3>
+      <div class="row">
+        <label>Size</label>
+        <input type="range" id="sSize" min="30" max="500" step="1">
+        <span class="val" id="sSizeVal"></span>
+      </div>
+      <div class="row">
+        <label>Color</label>
+        <div class="swatches" id="swatches"></div>
+      </div>
+      <div class="row">
+        <label>Custom color</label>
+        <input type="color" id="sColor">
+      </div>
+      <div class="preview"><div id="previewWrap"></div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ HISTORY ============ -->
+<section id="history" class="screen hidden">
+  <div class="bar">
+    <h2>History</h2>
+    <button class="ghost" id="btnClearHist">Clear</button>
+    <button class="primary" id="btnHistBack" style="padding:10px 18px;font-size:15px">Back</button>
+  </div>
+  <div class="scroll" id="histBody"></div>
+</section>
+
+<!-- ============ FIELD ============ -->
+<section id="field" class="screen hidden">
+  <div id="zones" class="hidden"></div>
+  <div id="hud">
+    <div id="hProgLabel">Reps <b id="hProg">0</b></div>
+    <div>Last <b id="hLast">&mdash;</b></div>
+    <div>Avg <b id="hAvg">&mdash;</b></div>
+    <div class="sp"></div>
+    <button id="stop">Stop</button>
+  </div>
+  <div id="countdown"></div>
+  <div id="summary" class="hidden">
+    <h2>Session</h2>
+    <div class="stats">
+      <div class="stat"><span>Reps</span><b id="zReps">0</b></div>
+      <div class="stat"><span>Hits</span><b id="zHits">0</b></div>
+      <div class="stat"><span>Average</span><b id="zAvg">&mdash;</b></div>
+      <div class="stat"><span>Best</span><b id="zBest">&mdash;</b></div>
+      <div class="stat"><span>Left side</span><b id="zLeft">&mdash;</b><i id="zLeftN"></i></div>
+      <div class="stat"><span>Right side</span><b id="zRight">&mdash;</b><i id="zRightN"></i></div>
+    </div>
+    <div class="note" id="zSplit"></div>
+    <div class="stack">
+      <button class="primary" id="btnAgain">Go again</button>
+      <button class="ghost" id="btnHome">Home</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+
+  // ---------- settings ----------
+  const DEFAULTS = {
+    intervalMin: 1.000,      // seconds
+    intervalMax: 2.500,
+    showFor:     0.700,
+    size:        120,        // px diameter
+    color:       '#ffd400',
+    area:        'anywhere', // anywhere | zones
+    cue:         'visual',   // visual | both | sound
+    limit:       'open',     // open | reps | time
+    limitReps:   20,
+    limitMins:   2
+  };
+  const PRESETS = ['#ffd400','#c6e500','#ff7a18','#ffffff','#ff2d55','#00e0c6'];
+  const K_SET = 'reflex.settings', K_LAST = 'reflex.lastRun', K_HIST = 'reflex.history';
+  const HIST_MAX = 60;
+
+  let S = load(K_SET, DEFAULTS);
+
+  function load(key, fallback){
+    try {
+      const v = JSON.parse(localStorage.getItem(key));
+      if (v === null || v === undefined) return clone(fallback);
+      return Array.isArray(fallback) ? v : Object.assign(clone(fallback), v);
+    } catch { return clone(fallback); }
+  }
+  function clone(v){ return Array.isArray(v) ? v.slice() : Object.assign({}, v); }
+  function save(key, val){ try { localStorage.setItem(key, JSON.stringify(val)); } catch {} }
+
+  // ---------- ball artwork ----------
+  function ballSVG(uid){
+    return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="g${uid}" cx="36%" cy="30%" r="78%">
+          <stop offset="0%"  stop-color="#fff" stop-opacity=".45"/>
+          <stop offset="45%" stop-color="#fff" stop-opacity="0"/>
+          <stop offset="100%" stop-color="#000" stop-opacity=".34"/>
+        </radialGradient>
+        <pattern id="p${uid}" width="7" height="7" patternUnits="userSpaceOnUse">
+          <circle cx="1.8" cy="1.8" r="1.1" fill="#000" opacity=".10"/>
+          <circle cx="5.3" cy="5.3" r="1.1" fill="#000" opacity=".10"/>
+        </pattern>
+        <clipPath id="c${uid}"><circle cx="50" cy="50" r="48"/></clipPath>
+      </defs>
+      <circle cx="50" cy="50" r="48" fill="var(--ball)"/>
+      <g clip-path="url(#c${uid})">
+        <rect width="100" height="100" fill="url(#p${uid})"/>
+        <g fill="none" stroke="#000" stroke-opacity=".42" stroke-width="2.6" stroke-linecap="round">
+          <path d="M50 2 C 17 26 17 74 50 98"/>
+          <path d="M50 2 C 83 26 83 74 50 98"/>
+          <path d="M2 50 C 26 17 74 17 98 50"/>
+          <path d="M2 50 C 26 83 74 83 98 50"/>
+        </g>
+        <rect width="100" height="100" fill="url(#g${uid})"/>
+      </g>
+      <circle cx="50" cy="50" r="47" fill="none" stroke="#000" stroke-opacity=".28" stroke-width="2"/>
+    </svg>`;
+  }
+
+  const field = $('field');
+  const ball = document.createElement('div');
+  ball.id = 'ball';
+  ball.innerHTML = ballSVG('f');
+  field.appendChild(ball);
+
+  function show(which){
+    for (const s of ['home','settings','history','field']) $(s).classList.toggle('hidden', s !== which);
+  }
+
+  // ---------- sound cue ----------
+  let actx = null;
+  function initAudio(){
+    if (S.cue === 'visual') return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+    } catch { actx = null; }
+  }
+  function beep(){
+    if (!actx) return;
+    const t = actx.currentTime;
+    const osc = actx.createOscillator(), gain = actx.createGain();
+    osc.type = 'square'; osc.frequency.value = 880;
+    // hard-ish attack so the onset is crisp, short tail so it can't mask the next cue
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.linearRampToValueAtTime(0.28, t + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    osc.connect(gain).connect(actx.destination);
+    osc.start(t); osc.stop(t + 0.08);
+  }
+
+  // ---------- session ----------
+  const ZONE_COLS = 3, ZONE_ROWS = 2, HUD_H = 58;
+  const st = {
+    running:false, reps:0, hits:0, times:[],   // times: {rt, side}
+    cx:0, cy:0, r:0, zone:-1, visible:false, shownAt:0, startedAt:0,
+    timer:null, hideTimer:null, raf:0
+  };
+
+  const fmt = ms => Math.round(ms) + ' ms';
+  const mean = a => a.reduce((x,y)=>x+y,0) / a.length;
+
+  function startSession(){
+    show('field');
+    requestFullscreen();
+    keepAwake();
+    initAudio();
+    Object.assign(st, { running:true, reps:0, hits:0, times:[], visible:false, zone:-1, cx:0, cy:0 });
+    $('summary').classList.add('hidden');
+    $('zones').classList.toggle('hidden', S.area !== 'zones');
+    if (S.area === 'zones') drawZones();
+    updateHUD();
+    countdown(3);
+  }
+
+  function drawZones(){
+    const box = $('zones');
+    const w = 100 / ZONE_COLS, h = 100 / ZONE_ROWS;
+    box.innerHTML = Array.from({length: ZONE_COLS * ZONE_ROWS}, (_, i) => {
+      const c = i % ZONE_COLS, r = Math.floor(i / ZONE_COLS);
+      return `<div style="left:${c*w}%;top:calc(${HUD_H}px + ${r*h}% - ${HUD_H*r/ZONE_ROWS}px);`
+           + `width:${w}%;height:calc(${h}% - ${HUD_H/ZONE_ROWS}px)"></div>`;
+    }).join('');
+  }
+
+  function countdown(n){
+    const el = $('countdown');
+    el.classList.remove('hidden');
+    el.textContent = n > 0 ? n : 'GO';
+    st.timer = setTimeout(() => {
+      if (!st.running) return;
+      if (n > 0) return countdown(n - 1);
+      el.classList.add('hidden');
+      st.startedAt = performance.now();
+      scheduleNext();
+    }, 700);
+  }
+
+  function scheduleNext(){
+    if (limitReached()) return endSession();
+    const lo = S.intervalMin, hi = Math.max(S.intervalMax, S.intervalMin);
+    const wait = (lo + Math.random() * (hi - lo)) * 1000;
+    waitUntil(performance.now() + wait, spawn);
+  }
+
+  function limitReached(){
+    if (S.limit === 'reps') return st.reps >= S.limitReps;
+    if (S.limit === 'time') return performance.now() - st.startedAt >= S.limitMins * 60000;
+    return false;
+  }
+
+  // setTimeout gets us close, then rAF lands us on the first frame at/after the target
+  function waitUntil(target, fn){
+    st.timer = setTimeout(function tick(){
+      st.raf = requestAnimationFrame(now => {
+        if (!st.running) return;
+        if (now >= target) fn(now);
+        else tick();
+      });
+    }, Math.max(0, target - performance.now() - 8));
+  }
+
+  function pickSpot(r){
+    const m = r + 6, W = innerWidth, H = innerHeight;
+    if (S.area === 'zones'){
+      const cells = ZONE_COLS * ZONE_ROWS;
+      let z = st.zone;
+      for (let i = 0; i < 12 && z === st.zone; i++) z = Math.floor(Math.random() * cells);
+      st.zone = z;
+      const col = z % ZONE_COLS, row = Math.floor(z / ZONE_COLS);
+      const cw = W / ZONE_COLS, ch = (H - HUD_H) / ZONE_ROWS;
+      const jx = Math.max(0, cw / 2 - m), jy = Math.max(0, ch / 2 - m);
+      return {
+        x: clamp(col * cw + cw / 2 + (Math.random() * 2 - 1) * jx, m, W - m),
+        y: clamp(HUD_H + row * ch + ch / 2 + (Math.random() * 2 - 1) * jy, HUD_H + m, H - m)
+      };
+    }
+    // anywhere: resample so the ball never lands on top of the last one
+    const minGap = Math.min(W, H) * 0.28;
+    let x = 0, y = 0;
+    for (let i = 0; i < 12; i++){
+      x = m + Math.random() * Math.max(0, W - m * 2);
+      y = HUD_H + m + Math.random() * Math.max(0, H - HUD_H - m * 2);
+      if (Math.hypot(x - st.cx, y - st.cy) > minGap) break;
+    }
+    return { x, y };
+  }
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+  function spawn(frameTime){
+    const r = S.size / 2;
+    const { x, y } = pickSpot(r);
+    st.cx = x; st.cy = y; st.r = r;
+
+    if (S.cue !== 'sound'){
+      ball.style.left = (x - r) + 'px';
+      ball.style.top  = (y - r) + 'px';
+      ball.style.visibility = 'visible';
+    }
+    if (S.cue !== 'visual') beep();
+
+    st.visible = true;
+    st.reps++;
+    updateHUD();
+
+    // spawn() runs inside the rAF callback of the frame that paints the ball,
+    // so that frame's timestamp is our best estimate of when the cue landed
+    st.shownAt = frameTime;
+
+    st.hideTimer = setTimeout(() => { if (st.visible){ hide(); scheduleNext(); } }, S.showFor * 1000);
+  }
+
+  function hide(){
+    st.visible = false;
+    ball.style.visibility = 'hidden';
+    clearTimeout(st.hideTimer);
+  }
+
+  function onTap(e){
+    if (!st.running || !st.visible) return;
+    // beep-only has no target on screen, so anywhere counts
+    if (S.cue !== 'sound' && Math.hypot(e.clientX - st.cx, e.clientY - st.cy) > st.r) return;
+    const rt = performance.now() - st.shownAt;
+    const side = S.cue === 'sound' ? null : (st.cx < innerWidth / 2 ? 'L' : 'R');
+    st.hits++; st.times.push({ rt, side });
+    hide(); updateHUD(); scheduleNext();
+  }
+
+  function updateHUD(){
+    if (S.limit === 'reps'){
+      $('hProgLabel').firstChild.nodeValue = 'Reps ';
+      $('hProg').textContent = st.reps + '/' + S.limitReps;
+    } else if (S.limit === 'time'){
+      $('hProgLabel').firstChild.nodeValue = 'Reps ';
+      $('hProg').textContent = st.reps;
+    } else {
+      $('hProg').textContent = st.reps;
+    }
+    const rts = st.times.map(t => t.rt);
+    $('hLast').textContent = rts.length ? fmt(rts[rts.length - 1]) : '—';
+    $('hAvg').textContent  = rts.length ? fmt(mean(rts)) : '—';
+  }
+
+  // ticks down the clock in time-limited sessions
+  let clockTimer = null;
+  function startClock(){
+    stopClock();
+    if (S.limit !== 'time') return;
+    clockTimer = setInterval(() => {
+      if (!st.running || !st.startedAt) return;
+      const left = Math.max(0, S.limitMins * 60000 - (performance.now() - st.startedAt));
+      $('hProgLabel').firstChild.nodeValue = 'Left ';
+      $('hProg').textContent = Math.floor(left / 60000) + ':' + String(Math.floor(left / 1000) % 60).padStart(2,'0');
+      if (left <= 0 && st.running && !st.visible) endSession();
+    }, 200);
+  }
+  function stopClock(){ clearInterval(clockTimer); clockTimer = null; }
+
+  function sideStats(times){
+    const L = times.filter(t => t.side === 'L').map(t => t.rt);
+    const R = times.filter(t => t.side === 'R').map(t => t.rt);
+    return {
+      left:  L.length ? mean(L) : null, leftN:  L.length,
+      right: R.length ? mean(R) : null, rightN: R.length
+    };
+  }
+
+  function endSession(){
+    if (!st.running) return;
+    st.running = false;
+    clearTimeout(st.timer); clearTimeout(st.hideTimer); cancelAnimationFrame(st.raf);
+    stopClock(); hide(); releaseWake();
+    $('countdown').classList.add('hidden');
+
+    const rts = st.times.map(t => t.rt);
+    const avg = rts.length ? mean(rts) : null;
+    const best = rts.length ? Math.min(...rts) : null;
+    const sp = sideStats(st.times);
+
+    $('zReps').textContent  = st.reps;
+    $('zHits').textContent  = st.hits;
+    $('zAvg').textContent   = avg !== null ? fmt(avg) : '—';
+    $('zBest').textContent  = best !== null ? fmt(best) : '—';
+    $('zLeft').textContent  = sp.left  !== null ? fmt(sp.left)  : '—';
+    $('zRight').textContent = sp.right !== null ? fmt(sp.right) : '—';
+    $('zLeftN').textContent  = sp.leftN  ? '×' + sp.leftN  : '';
+    $('zRightN').textContent = sp.rightN ? '×' + sp.rightN : '';
+
+    let note = '';
+    if (sp.left !== null && sp.right !== null && sp.leftN >= 3 && sp.rightN >= 3){
+      const d = Math.abs(sp.left - sp.right);
+      note = d < 15
+        ? 'Both sides even, within ' + Math.round(d) + ' ms.'
+        : 'You are ' + Math.round(d) + ' ms slower to your ' + (sp.left > sp.right ? 'left' : 'right') + '.';
+    } else if (S.cue === 'sound'){
+      note = 'Beep-only drill — no side to split.';
+    }
+    $('zSplit').textContent = note;
+    $('summary').classList.remove('hidden');
+
+    if (st.reps > 0){
+      save(K_LAST, { reps:st.reps, hits:st.hits, avg, best });
+      const hist = load(K_HIST, []);
+      hist.push({ t:Date.now(), reps:st.reps, hits:st.hits, avg, best,
+                  left:sp.left, right:sp.right, area:S.area, cue:S.cue });
+      save(K_HIST, hist.slice(-HIST_MAX));
+    }
+    renderLastRun();
+  }
+
+  function renderLastRun(){
+    const l = load(K_LAST, null);
+    $('lastRun').innerHTML = (l && l.reps)
+      ? `Last session &middot; <b>${l.reps}</b> reps &middot; <b>${l.hits}</b> hits`
+        + (l.best != null ? ` &middot; best <b>${fmt(l.best)}</b>` : '')
+      : '';
+  }
+
+  // ---------- history + chart ----------
+  const niceStep = raw => {
+    const p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+  };
+  const dayLabel = ts => new Date(ts).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+
+  function renderHistory(){
+    const hist = load(K_HIST, []);
+    const body = $('histBody');
+    if (!hist.length){
+      body.innerHTML = '<div class="empty">No sessions yet. Finish a drill and it shows up here.</div>';
+      return;
+    }
+    const scored = hist.filter(h => h.avg != null);
+    const bestEver = scored.length ? Math.min(...scored.map(h => h.best)) : null;
+    const recent = scored.slice(-5);
+
+    body.innerHTML = `
+      <div class="stats" style="width:100%;grid-template-columns:repeat(3,1fr);margin-bottom:22px">
+        <div class="stat"><span>Sessions</span><b>${hist.length}</b></div>
+        <div class="stat"><span>Best ever</span><b>${bestEver != null ? Math.round(bestEver) : '—'}</b><i>ms</i></div>
+        <div class="stat"><span>Last 5 avg</span><b>${recent.length ? Math.round(mean(recent.map(h => h.avg))) : '—'}</b><i>ms</i></div>
+      </div>
+      <div class="figure">
+        <h4>Average reaction time per session</h4>
+        <p>Oldest to newest &middot; lower is better</p>
+        <div id="chartBox"><svg id="chart" role="img"></svg><div id="tip"></div></div>
+      </div>
+      <table>
+        <thead><tr><th>Session</th><th>Reps</th><th>Hits</th><th>Avg</th><th>Best</th></tr></thead>
+        <tbody>${hist.slice().reverse().map(h => `<tr>
+          <td>${dayLabel(h.t)}</td><td>${h.reps}</td><td>${h.hits}</td>
+          <td>${h.avg != null ? Math.round(h.avg) : '—'}</td>
+          <td>${h.best != null ? Math.round(h.best) : '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+
+    drawChart(scored);
+  }
+
+  function drawChart(data){
+    const svg = $('chart'), tip = $('tip');
+    if (!svg) return;
+    if (!data.length){
+      svg.outerHTML = '<div class="empty">No scored sessions yet — hit some balls.</div>';
+      return;
+    }
+    const W = Math.max(260, svg.clientWidth || svg.parentNode.clientWidth || 320), H = 200;
+    const P = { l:44, r:18, t:14, b:26 };
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+    const vals = data.map(d => d.avg);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const pad = Math.max(20, (hi - lo) * 0.3);
+    lo = Math.max(0, lo - pad); hi = hi + pad;
+    const step = niceStep((hi - lo) / 3);
+    lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+
+    const px = i => data.length === 1 ? (P.l + (W - P.l - P.r) / 2)
+                                      : P.l + i * (W - P.l - P.r) / (data.length - 1);
+    const py = v => P.t + (1 - (v - lo) / (hi - lo)) * (H - P.t - P.b);
+
+    let g = '';
+    for (let v = lo; v <= hi + 1e-6; v += step){
+      g += `<line x1="${P.l}" y1="${py(v).toFixed(1)}" x2="${W - P.r}" y2="${py(v).toFixed(1)}" stroke="var(--grid)" stroke-width="1"/>`
+         + `<text x="${P.l - 8}" y="${(py(v) + 4).toFixed(1)}" fill="var(--muted)" font-size="11" text-anchor="end">${Math.round(v)}</text>`;
+    }
+
+    const pts = data.map((d, i) => [px(i), py(d.avg)]);
+    const line = data.length > 1
+      ? `<path d="${pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ')}"
+               fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`
+      : '';
+
+    const bestI = vals.indexOf(Math.min(...vals)), lastI = data.length - 1;
+    const dots = pts.map(([x, y], i) =>
+      `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="var(--series)" stroke="var(--panel)" stroke-width="2"/>`
+    ).join('');
+
+    // label only the endpoint and the best session - never every point
+    const label = (i, txt, anchor) =>
+      `<text x="${clamp(px(i), P.l + 4, W - P.r - 4).toFixed(1)}" y="${(py(vals[i]) - 12).toFixed(1)}"
+             fill="var(--ink)" font-size="12" font-weight="600" text-anchor="${anchor}">${txt}</text>`;
+    let labels = label(lastI, Math.round(vals[lastI]) + ' ms', lastI === 0 ? 'middle' : 'end');
+    if (bestI !== lastI) labels += label(bestI, 'best ' + Math.round(vals[bestI]), bestI === 0 ? 'start' : 'middle');
+
+    const xlab = data.length > 1
+      ? `<text x="${P.l}" y="${H - 6}" fill="var(--muted)" font-size="11">${dayLabel(data[0].t)}</text>`
+      + `<text x="${W - P.r}" y="${H - 6}" fill="var(--muted)" font-size="11" text-anchor="end">${dayLabel(data[lastI].t)}</text>`
+      : `<text x="${W / 2}" y="${H - 6}" fill="var(--muted)" font-size="11" text-anchor="middle">${dayLabel(data[0].t)}</text>`;
+
+    svg.innerHTML = g + line + dots + labels + xlab
+      + `<line id="cross" x1="0" y1="${P.t}" x2="0" y2="${H - P.b}" stroke="var(--grid)" stroke-width="1" opacity="0"/>`;
+
+    // hover / touch layer
+    const cross = svg.querySelector('#cross');
+    const move = e => {
+      const box = svg.getBoundingClientRect();
+      const x = e.clientX - box.left;
+      let i = 0, dmin = Infinity;
+      pts.forEach((p, k) => { const d = Math.abs(p[0] - x); if (d < dmin){ dmin = d; i = k; } });
+      const d = data[i];
+      cross.setAttribute('x1', pts[i][0]); cross.setAttribute('x2', pts[i][0]);
+      cross.setAttribute('opacity', '1');
+      tip.innerHTML = `<b>${dayLabel(d.t)}</b><br><span class="tipdot"></span>avg <b>${Math.round(d.avg)} ms</b>`
+                    + `<br>${d.hits}/${d.reps} hits &middot; best ${Math.round(d.best)} ms`;
+      tip.style.left = clamp(pts[i][0], 60, W - 60) + 'px';
+      tip.style.top  = pts[i][1] + 'px';
+      tip.style.opacity = '1';
+    };
+    svg.addEventListener('pointermove', move);
+    svg.addEventListener('pointerdown', move);
+    svg.addEventListener('pointerleave', () => { tip.style.opacity = '0'; cross.setAttribute('opacity','0'); });
+  }
+
+  // ---------- screen wake / fullscreen ----------
+  let wakeLock = null;
+  async function keepAwake(){ try { wakeLock = await navigator.wakeLock.request('screen'); } catch {} }
+  function releaseWake(){ try { wakeLock && wakeLock.release(); } catch {} wakeLock = null; }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && st.running && !wakeLock) keepAwake();
+  });
+  function requestFullscreen(){
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
+  }
+
+  // ---------- settings UI ----------
+  function applyBall(){
+    document.documentElement.style.setProperty('--ball', S.color);
+    document.documentElement.style.setProperty('--ball-size', S.size + 'px');
+  }
+
+  function setSeg(id, value){
+    for (const b of $(id).children) b.setAttribute('aria-pressed', b.dataset.v === value);
+  }
+
+  function renderSettings(){
+    $('sIntMin').value = S.intervalMin.toFixed(3);
+    $('sIntMax').value = S.intervalMax.toFixed(3);
+    $('sShow').value   = S.showFor.toFixed(3);
+    $('sReps').value   = S.limitReps;
+    $('sMins').value   = S.limitMins;
+    $('sSize').value   = S.size;
+    $('sSizeVal').textContent = S.size + ' px';
+    $('sColor').value  = S.color;
+    setSeg('segArea', S.area); setSeg('segCue', S.cue); setSeg('segLimit', S.limit);
+    $('rowReps').classList.toggle('hidden', S.limit !== 'reps');
+    $('rowMins').classList.toggle('hidden', S.limit !== 'time');
+    for (const b of $('swatches').children)
+      b.setAttribute('aria-pressed', b.dataset.c.toLowerCase() === S.color.toLowerCase());
+    applyBall();
+    const scale = Math.min(1, 150 / S.size);
+    $('previewWrap').style.cssText =
+      `width:${S.size}px;height:${S.size}px;transform:scale(${scale});filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))`;
+  }
+
+  $('swatches').innerHTML = PRESETS.map(c => `<button class="sw" data-c="${c}" style="background:${c}"></button>`).join('');
+  $('previewWrap').innerHTML = ballSVG('p');
+
+  $('swatches').addEventListener('click', e => {
+    const b = e.target.closest('.sw'); if (!b) return;
+    S.color = b.dataset.c; save(K_SET, S); renderSettings();
+  });
+  $('sColor').addEventListener('input', e => { S.color = e.target.value; save(K_SET, S); renderSettings(); });
+  $('sSize').addEventListener('input', e => { S.size = +e.target.value; save(K_SET, S); renderSettings(); });
+
+  for (const [id, key] of [['segArea','area'], ['segCue','cue'], ['segLimit','limit']]){
+    $(id).addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      S[key] = b.dataset.v; save(K_SET, S); renderSettings();
+    });
+  }
+
+  // clamp on change, not on every keystroke, so typing "1.2" mid-edit isn't fought
+  function numField(el, key, min, max, round){
+    el.addEventListener('change', () => {
+      let v = parseFloat(el.value);
+      if (!isFinite(v)) v = DEFAULTS[key];
+      v = round ? Math.round(v) : Math.round(v * 1000) / 1000;
+      S[key] = clamp(v, min, max);
+      if (key === 'intervalMin' && S.intervalMax < S.intervalMin) S.intervalMax = S.intervalMin;
+      if (key === 'intervalMax' && S.intervalMax < S.intervalMin) S.intervalMin = S.intervalMax;
+      save(K_SET, S); renderSettings();
+    });
+  }
+  numField($('sIntMin'), 'intervalMin', 0.05, 60);
+  numField($('sIntMax'), 'intervalMax', 0.05, 60);
+  numField($('sShow'),   'showFor',     0.05, 10);
+  numField($('sReps'),   'limitReps',   1,   999, true);
+  numField($('sMins'),   'limitMins',   0.5,  60);
+
+  // ---------- wiring ----------
+  function go(){ startSession(); startClock(); }
+  $('btnStart').addEventListener('click', go);
+  $('btnAgain').addEventListener('click', go);
+  $('btnSettings').addEventListener('click', () => { renderSettings(); show('settings'); });
+  $('btnDone').addEventListener('click', () => show('home'));
+  $('btnHistory').addEventListener('click', () => { show('history'); renderHistory(); });
+  $('btnHistBack').addEventListener('click', () => show('home'));
+  $('btnClearHist').addEventListener('click', () => {
+    if (confirm('Delete all session history?')){ save(K_HIST, []); renderHistory(); }
+  });
+  $('btnHome').addEventListener('click', () => { show('home'); document.exitFullscreen?.().catch(()=>{}); });
+  $('btnFull').addEventListener('click', () => {
+    document.fullscreenElement ? document.exitFullscreen().catch(()=>{}) : requestFullscreen();
+  });
+  $('btnReset').addEventListener('click', () => { S = clone(DEFAULTS); save(K_SET, S); renderSettings(); });
+
+  $('stop').addEventListener('pointerdown', e => { e.stopPropagation(); endSession(); });
+  field.addEventListener('pointerdown', onTap);
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  addEventListener('keydown', e => { if (e.key === 'Escape' && st.running) endSession(); });
+  addEventListener('resize', () => {
+    if (!$('history').classList.contains('hidden')) renderHistory();
+    if (st.running && S.area === 'zones') drawZones();
+  });
+
+  // native shells (Android back button, Electron) ask the page to go back first
+  window.reflexBack = () => {
+    if (st.running){ endSession(); return true; }
+    for (const id of ['field','settings','history']){
+      if (!$(id).classList.contains('hidden')){ show('home'); return true; }
+    }
+    return false;
+  };
+
+  applyBall();
+  renderLastRun();
+  show('home');
+
+  if (location.protocol.startsWith('http')) navigator.serviceWorker?.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>

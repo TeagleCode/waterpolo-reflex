@@ -1,0 +1,47 @@
+plugins { id 'com.android.application' }
+
+// The web app is the single source of truth; copy it in as assets before every build.
+tasks.register('copyWebApp', Copy) {
+  from "${rootDir}/../www"
+  into "${projectDir}/src/main/assets/www"
+}
+
+android {
+  namespace 'com.reflex.goalie'
+  compileSdk 35
+
+  defaultConfig {
+    applicationId "com.reflex.goalie"
+    minSdk 24
+    targetSdk 35
+    versionCode  (System.getenv("VERSION_CODE") ?: "1").toInteger()
+    versionName  (System.getenv("VERSION_NAME") ?: "1.0.0")
+  }
+
+  signingConfigs {
+    release {
+      // supplied by CI; absent locally, in which case we fall back to the debug key
+      def ks = System.getenv("KEYSTORE_FILE")
+      if (ks) {
+        storeFile     file(ks)
+        storePassword System.getenv("KEYSTORE_PASSWORD")
+        keyAlias      System.getenv("KEY_ALIAS")
+        keyPassword   System.getenv("KEY_PASSWORD")
+      }
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+      signingConfig System.getenv("KEYSTORE_FILE") ? signingConfigs.release : signingConfigs.debug
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+}
+
+tasks.named('preBuild') { dependsOn 'copyWebApp' }

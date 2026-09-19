@@ -1,0 +1,49 @@
+{
+  "name": "reflex",
+  "version": "1.0.0",
+  "description": "Water polo goalie reaction trainer",
+  "main": "main.js",
+  "author": "TeagleCode",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.reflex.goalie",
+    "productName": "Reflex",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "www/**/*",
+      "build/icon.png"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico",
+      "artifactName": "Reflex-${version}-${arch}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Reflex-Setup-${version}.exe",
+      "shortcutName": "Reflex"
+    },
+    "portable": {
+      "artifactName": "Reflex-Portable-${version}.exe"
+    }
+  }
+}
